@@ -1,1 +1,737 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Työkoneen käynnistyspiiri – Akunkengän hapettuma & V DC -mittaus</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Courier+Prime:wght@400;700&display=swap');
 
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 18px;
+    background-color: #d6d2c4;
+    font-family: 'Patrick Hand', cursive, sans-serif;
+    color: #1b263b;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* 5 mm ruutupaperivihko */
+  .notebook-spread {
+    width: 100%;
+    max-width: 1180px;
+    background-color: #fbfaf5;
+    background-image:
+      linear-gradient(to right, rgba(74, 111, 165, 0.24) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(74, 111, 165, 0.24) 1px, transparent 1px);
+    background-size: 20px 20px;
+    border: 2px solid #8d8778;
+    border-radius: 4px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .notebook-spread::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 34px;
+    transform: translateX(-50%);
+    background: linear-gradient(to right,
+      rgba(0,0,0,0) 0%,
+      rgba(0,0,0,0.08) 45%,
+      rgba(0,0,0,0.18) 50%,
+      rgba(0,0,0,0.08) 55%,
+      rgba(0,0,0,0) 100%);
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .page {
+    padding: 24px 30px;
+    position: relative;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    margin: 0 0 4px 0;
+    color: #14213d;
+    text-decoration: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: #4a6fa5;
+  }
+
+  .subtitle {
+    font-size: 1.12rem;
+    margin: 0 0 14px 0;
+    color: #2b3a4a;
+  }
+
+  /* Paint-kuvan kehys */
+  .paint-frame {
+    background: #ffffff;
+    border: 2.5px solid #1b263b;
+    border-radius: 3px;
+    padding: 10px;
+    box-shadow: 3px 3px 0px rgba(27, 38, 59, 0.25);
+    text-align: center;
+    margin-bottom: 14px;
+  }
+
+  .paint-frame img {
+    max-width: 100%;
+    height: auto;
+    max-height: 290px;
+    display: block;
+    margin: 0 auto;
+  }
+
+  .state-badge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 12px;
+    font-size: 1.15rem;
+    font-weight: bold;
+    border: 2px solid #1b263b;
+    border-radius: 3px;
+  }
+
+  .badge-green { background: #c8f7c5; color: #145a32; }
+  .badge-yellow { background: #fcf3cf; color: #7d6608; }
+  .badge-red { background: #fadbd8; color: #78281f; }
+
+  /* UNI-T tyylinen yleismittari */
+  .multimeter-box {
+    background: #e6e4dd;
+    border: 2.5px solid #1b263b;
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    box-shadow: 3px 3px 0 #1b263b;
+  }
+
+  .meter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    border-bottom: 1.5px solid #8d8778;
+    padding-bottom: 4px;
+  }
+
+  .meter-tag {
+    background: #b91c1c;
+    color: #fff;
+    padding: 1px 8px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.9rem;
+    border-radius: 2px;
+  }
+
+  .lcd-screen {
+    background: #9fb398;
+    border: 2.5px inset #4a5548;
+    padding: 8px 12px;
+    font-family: 'Courier Prime', monospace;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+
+  .lcd-mode {
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: #1f291e;
+  }
+
+  .lcd-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #111810;
+    letter-spacing: 1px;
+  }
+
+  .probe-controls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .probe-controls select {
+    font-family: 'Patrick Hand', cursive, sans-serif;
+    font-size: 1.1rem;
+    padding: 5px 8px;
+    border: 2px solid #1b263b;
+    background: #fff;
+  }
+
+  .crank-btn {
+    background: #fcd34d;
+    font-weight: bold;
+    border: 2px solid #1b263b;
+    padding: 6px 12px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 #1b263b;
+  }
+
+  .crank-btn.active {
+    background: #f87171;
+    color: #fff;
+  }
+
+  /* Säätimet */
+  .control-panel {
+    background: rgba(255, 255, 255, 0.85);
+    border: 2px solid #1b263b;
+    padding: 12px 14px;
+    border-radius: 3px;
+    margin-bottom: 10px;
+  }
+
+  .slider-row {
+    margin-bottom: 8px;
+  }
+
+  .slider-row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.15rem;
+    font-weight: bold;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+    accent-color: #14213d;
+  }
+
+  /* Oikea sivu: muistikolmiot & laskenta */
+  .triangles-box {
+    display: flex;
+    gap: 16px;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+  }
+
+  .triangle-card {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1.5px solid #1b263b;
+    padding: 3px 7px;
+    border-radius: 3px;
+  }
+
+  .calc-sheet {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.96rem;
+    background: rgba(255, 255, 255, 0.88);
+    border: 2px solid #1b263b;
+    padding: 10px 14px;
+    line-height: 1.55;
+  }
+
+  .calc-row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed #9aa5b1;
+    padding: 2px 0;
+  }
+
+  .calc-row:last-child { border-bottom: none; }
+
+  .verdict-box {
+    margin-top: 10px;
+    padding: 9px 12px;
+    border: 2.5px solid #1b263b;
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  /* Nollavirhe-koe & Diplomi */
+  .quiz-box {
+    margin-top: 12px;
+    background: #fffef0;
+    border: 2px dashed #1b263b;
+    padding: 12px 14px;
+  }
+
+  .quiz-box h3 {
+    margin: 0 0 6px 0;
+    font-size: 1.25rem;
+  }
+
+  .quiz-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .quiz-inputs label {
+    display: block;
+    font-size: 1rem;
+    font-weight: bold;
+  }
+
+  .quiz-inputs input, .quiz-inputs select {
+    width: 100%;
+    padding: 5px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.95rem;
+    border: 1.5px solid #1b263b;
+    background: #fff;
+  }
+
+  button {
+    font-family: 'Patrick Hand', cursive, sans-serif;
+    font-size: 1.1rem;
+    padding: 5px 14px;
+    border: 2px solid #1b263b;
+    background: #e9ecef;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 #1b263b;
+    margin-right: 6px;
+  }
+
+  button:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 #1b263b;
+  }
+
+  .diploma-panel {
+    display: none;
+    margin-top: 10px;
+    padding: 10px;
+    background: #e8f5e9;
+    border: 2px solid #145a32;
+    border-radius: 3px;
+  }
+
+  .diploma-panel input {
+    font-family: 'Patrick Hand', cursive, sans-serif;
+    font-size: 1.15rem;
+    padding: 4px 8px;
+    border: 1.5px solid #1b263b;
+    margin-right: 6px;
+    width: 58%;
+  }
+
+  .note-footer {
+    font-size: 1rem;
+    color: #33415c;
+    line-height: 1.35;
+  }
+
+  @media (max-width: 900px) {
+    .notebook-spread { grid-template-columns: 1fr; }
+    .notebook-spread::before { display: none; }
+    .quiz-inputs { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="notebook-spread">
+  <!-- VASEN SIVU: Paint-kuva, Yleismittari V DC ja säädöt -->
+  <div class="page">
+    <h1>Työkoneen käynnistyspiiri (12 V)</h1>
+    <p class="subtitle">Akunkengän hapettuma ja kuormitettu jännitehäviömittaus (V DC)</p>
+
+    <div class="paint-frame">
+      <img id="circuitImage" src="hapettuma-vihrea.png" alt="Virtapiirikaavio" onerror="handleImageFallback()">
+      <div id="fallbackInfo" style="display:none; padding: 14px; font-family: 'Courier Prime', monospace; color: #78281f;">
+        Kuvaa <strong id="missingFileName">hapettuma-vihrea.png</strong> ei löytynyt samasta kansiosta.
+      </div>
+      <div>
+        <span id="stateBadge" class="state-badge badge-green">VIHREÄ: Puhdas liitos (R_h ≤ 0,05 Ω)</span>
+      </div>
+    </div>
+
+    <!-- Yleismittari (Kuormitettu V DC -mittaus) -->
+    <div class="multimeter-box">
+      <div class="meter-header">
+        <span>YLEISMITTARI – Jännitehäviömittaus</span>
+        <span class="meter-tag">V DC (20V)</span>
+      </div>
+      <div class="lcd-screen">
+        <span class="lcd-mode" id="lcdStatusText">LEPOTILA (Ei kuormitusta)</span>
+        <span class="lcd-value" id="lcdReading">0.00 V</span>
+      </div>
+      <div class="probe-controls">
+        <select id="probeSelect" onchange="updateMultimeter()">
+          <option value="drop_rh">Mittapäät: Akun (+) napa ↔ Akunkenkä (Hapettuma U_h)</option>
+          <option value="batt_term">Mittapäät: Akun (+) napa ↔ Akun (–) napa (Napajännite)</option>
+          <option value="starter">Mittapäät: Startin (+) napa ↔ Runko (Startin jännite U_M)</option>
+        </select>
+        <button id="crankBtn" class="crank-btn" onclick="toggleCrank()">⚡ Starttaa (Kuormita)</button>
+      </div>
+    </div>
+
+    <div class="control-panel">
+      <div class="slider-row">
+        <label for="rhSlider">
+          <span>Akunkengän hapettuma (R_h):</span>
+          <span><span id="rhDisplay">0.02</span> Ω</span>
+        </label>
+        <input type="range" id="rhSlider" min="0.00" max="0.40" step="0.01" value="0.02">
+      </div>
+      <div class="slider-row" style="margin-bottom: 0;">
+        <label for="rsSlider">
+          <span>Akun sisäinen vastus (R_s):</span>
+          <span><span id="rsDisplay">0.04</span> Ω</span>
+        </label>
+        <input type="range" id="rsSlider" min="0.00" max="0.10" step="0.01" value="0.04">
+      </div>
+    </div>
+
+    <div class="note-footer">
+      <strong>Mittausohje:</strong> Hapettuma ei näy lepotilassa! Paina <em>Starttaa (Kuormita)</em> ja lue jännitehäviö suoraan navan ja kengän yli (sallittu &lt; 0,10 V).<br>
+      <strong>Sähkön suunta:</strong> Akun sisällä <strong>&minus; &rarr; +</strong>, ulkopuolella <strong>+ &rarr; &minus;</strong>.
+    </div>
+  </div>
+
+  <!-- OIKEA SIVU: Kaavakolmiot, laskelmat, Nollavirhe-koe ja Diplomi -->
+  <div class="page">
+    <div class="triangles-box">
+      <div class="triangle-card">
+        <svg width="80" height="66" viewBox="0 0 86 72">
+          <polygon points="43,5 81,67 5,67" fill="none" stroke="#1b263b" stroke-width="2"/>
+          <line x1="23" y1="38" x2="63" y2="38" stroke="#1b263b" stroke-width="1.8"/>
+          <line x1="43" y1="38" x2="43" y2="67" stroke="#1b263b" stroke-width="1.8"/>
+          <text x="43" y="31" text-anchor="middle" font-family="Patrick Hand" font-size="18" font-weight="bold">U</text>
+          <text x="27" y="60" text-anchor="middle" font-family="Patrick Hand" font-size="18" font-weight="bold">I</text>
+          <text x="59" y="60" text-anchor="middle" font-family="Patrick Hand" font-size="18" font-weight="bold">R</text>
+        </svg>
+      </div>
+      <div class="triangle-card">
+        <svg width="80" height="66" viewBox="0 0 86 72">
+          <polygon points="43,5 81,67 5,67" fill="none" stroke="#1b263b" stroke-width="2"/>
+          <line x1="23" y1="38" x2="63" y2="38" stroke="#1b263b" stroke-width="1.8"/>
+          <line x1="43" y1="38" x2="43" y2="67" stroke="#1b263b" stroke-width="1.8"/>
+          <text x="43" y="31" text-anchor="middle" font-family="Patrick Hand" font-size="18" font-weight="bold">P</text>
+          <text x="27" y="60" text-anchor="middle" font-family="Patrick Hand" font-size="18" font-weight="bold">U</text>
+          <text x="59" y="60" text-anchor="middle" font-family="Patrick Hand" font-size="18" font-weight="bold">I</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="calc-sheet">
+      <div class="calc-row"><span>Akun lähdejännite (E) / Startti (R_M):</span><span>12.60 V / 0.12 Ω</span></div>
+      <div class="calc-row"><span>Kokonaisresistanssi (R_tot = R_s + R_h + R_M):</span><span><strong id="rTotOut">0.18</strong> Ω</span></div>
+      <div class="calc-row"><span>Piirin käynnistysvirta (I = E / R_tot):</span><span><strong id="iOut">70.0</strong> A</span></div>
+      <div class="calc-row"><span>Akun sisäinen jännitehäviö (U_Rs = I · R_s):</span><span><span id="uRsOut">2.80</span> V</span></div>
+      <div class="calc-row"><span>Hapettuman jännitehäviö (U_h = I · R_h):</span><span><strong id="uRhOut">1.40</strong> V</span></div>
+      <div class="calc-row"><span>Jännite startin navalla (U_M):</span><span><strong id="uMOut">8.40</strong> V</span></div>
+      <div class="calc-row"><span>Startin teho (P_M) / Lämpöteho kengässä (P_h):</span><span><strong id="pMOut">588</strong> W / <strong id="pHOut">98</strong> W</span></div>
+    </div>
+
+    <div id="verdictBox" class="verdict-box badge-green">
+      ✅ KONE KÄYNNISTYY!
+    </div>
+
+    <!-- Opiskelijan Nollavirhe-laskutehtävä -->
+    <div class="quiz-box">
+      <h3>📝 Nollavirhe-diagnostiikkatesti (Diplomivaatimus)</h3>
+      <p style="margin: 0 0 6px 0; font-size: 1.08rem;">
+        Työkone ei käynnisty. Säädä tai laske tilanne: <strong>E = 12,6 V</strong>, <strong>R_s = 0,04 Ω</strong>, <strong>R_M = 0,12 Ω</strong> ja hapettuma <strong id="quizRhText">R_h = 0,20 Ω</strong>:
+      </p>
+      <div class="quiz-inputs">
+        <div>
+          <label>Jännitehäviö U_h (V):</label>
+          <input type="number" id="ansUh" step="0.01" placeholder="esim. 7.00">
+        </div>
+        <div>
+          <label>Virta I (A):</label>
+          <input type="number" id="ansI" step="0.1" placeholder="esim. 35.0">
+        </div>
+        <div>
+          <label>Startin jännite U_M (V):</label>
+          <input type="number" id="ansU" step="0.01" placeholder="esim. 4.20">
+        </div>
+        <div style="grid-column: span 3;">
+          <label>Huoltopäätös (Vältä turha 350 € akun vaihto!):</label>
+          <select id="ansStart">
+            <option value="">-- Valitse oikea toimenpide --</option>
+            <option value="clean">Irrota miinuskenkä ensin, puhdista hapettunut akunkenkä – akku on ehjä</option>
+            <option value="replace">Vaihda heti uusi 350 € käynnistysakku, liitokset ovat kunnossa</option>
+            <option value="ok">Kone käynnistyy normaalisti (U_M ≥ 8,0 V), ei vaadi toimenpiteitä</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="checkQuiz()">Tarkista Nollavirhe-tulos</button>
+      <button onclick="newQuiz()">Uusi vikatilanne</button>
+      <div id="quizFeedback" style="margin-top: 6px; font-weight: bold; font-size: 1.1rem;"></div>
+
+      <!-- Diplomin lataus kun koe läpäisty -->
+      <div id="diplomaPanel" class="diploma-panel">
+        <div style="font-weight: bold; color: #145a32; margin-bottom: 4px;">
+          🏆 Nollavirhe-suoritus hyväksytty! Kirjoita nimesi diplomia varten:
+        </div>
+        <input type="text" id="studentName" placeholder="Etunimi Sukunimi">
+        <button onclick="downloadDiploma()">Lataa Diplomi (.png)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Piilotettu Canvas diplomin piirtämiseen -->
+<canvas id="diplomaCanvas" width="900" height="620" style="display:none;"></canvas>
+
+<script>
+  const E = 12.6;
+  const R_M = 0.12;
+  let currentFile = "hapettuma-vihrea.png";
+  let isCranking = false;
+  let quizRh = 0.20;
+
+  let simState = { Rh: 0.02, Rs: 0.04, I: 70, U_Rs: 2.8, U_Rh: 1.4, U_M: 8.4 };
+
+  function updateSimulation() {
+    const Rh = parseFloat(document.getElementById("rhSlider").value);
+    const Rs = parseFloat(document.getElementById("rsSlider").value);
+
+    document.getElementById("rhDisplay").textContent = Rh.toFixed(2);
+    document.getElementById("rsDisplay").textContent = Rs.toFixed(2);
+
+    const R_tot = Rs + Rh + R_M;
+    const I = E / R_tot;
+    const U_Rs = I * Rs;
+    const U_Rh = I * Rh;
+    const U_M = I * R_M;
+    const P_M = U_M * I;
+    const P_h = U_Rh * I;
+
+    simState = { Rh, Rs, I, U_Rs, U_Rh, U_M };
+
+    document.getElementById("rTotOut").textContent = R_tot.toFixed(2);
+    document.getElementById("iOut").textContent = I.toFixed(1);
+    document.getElementById("uRsOut").textContent = U_Rs.toFixed(2);
+    document.getElementById("uRhOut").textContent = U_Rh.toFixed(2);
+    document.getElementById("uMOut").textContent = U_M.toFixed(2);
+    document.getElementById("pMOut").textContent = Math.round(P_M);
+    document.getElementById("pHOut").textContent = Math.round(P_h);
+
+    const imgEl = document.getElementById("circuitImage");
+    const badgeEl = document.getElementById("stateBadge");
+    const verdictEl = document.getElementById("verdictBox");
+
+    let targetFile = "hapettuma-vihrea.png";
+    if (Rh <= 0.05) {
+      targetFile = "hapettuma-vihrea.png";
+      badgeEl.className = "state-badge badge-green";
+      badgeEl.textContent = "VIHREÄ: Puhdas liitos (R_h ≤ 0,05 Ω)";
+    } else if (Rh <= 0.14) {
+      targetFile = "hapettuma-keltainen.png";
+      badgeEl.className = "state-badge badge-yellow";
+      badgeEl.textContent = "KELTAINEN: Alkava hapettuma, liitos lämpenee";
+    } else {
+      targetFile = "hapettuma-punainen.png";
+      badgeEl.className = "state-badge badge-red";
+      badgeEl.textContent = "PUNAINEN: Paha hapettuma, raju jännitehäviö!";
+    }
+
+    if (currentFile !== targetFile) {
+      currentFile = targetFile;
+      document.getElementById("fallbackInfo").style.display = "none";
+      imgEl.style.display = "block";
+      imgEl.src = targetFile;
+    }
+
+    if (U_M >= 8.0) {
+      verdictEl.className = "verdict-box badge-green";
+      verdictEl.textContent = "✅ KONE KÄYNNISTYY! (Startin jännite riittävä: " + U_M.toFixed(1) + " V)";
+    } else if (U_M >= 6.5) {
+      verdictEl.className = "verdict-box badge-yellow";
+      verdictEl.textContent = "⚠️ PYÖRII LAISKASTI! (Startin jännite vain " + U_M.toFixed(1) + " V)";
+    } else {
+      verdictEl.className = "verdict-box badge-red";
+      verdictEl.textContent = "❌ KONE EI KÄYNNISTY! (Startin jännite romahti: " + U_M.toFixed(1) + " V)";
+    }
+
+    updateMultimeter();
+  }
+
+  function toggleCrank() {
+    isCranking = !isCranking;
+    const btn = document.getElementById("crankBtn");
+    if (isCranking) {
+      btn.classList.add("active");
+      btn.textContent = "🛑 Lopeta starttaus";
+    } else {
+      btn.classList.remove("active");
+      btn.textContent = "⚡ Starttaa (Kuormita)";
+    }
+    updateMultimeter();
+  }
+
+  function updateMultimeter() {
+    const probe = document.getElementById("probeSelect").value;
+    const statusEl = document.getElementById("lcdStatusText");
+    const valEl = document.getElementById("lcdReading");
+
+    if (!isCranking) {
+      statusEl.textContent = "LEPOTILA (Ei kuormitusta)";
+      if (probe === "drop_rh") valEl.textContent = "0.00 V";
+      else if (probe === "batt_term") valEl.textContent = E.toFixed(2) + " V";
+      else valEl.textContent = "0.00 V";
+      return;
+    }
+
+    statusEl.textContent = "KUORMITETTU (Starttaus)";
+    if (probe === "drop_rh") {
+      valEl.textContent = simState.U_Rh.toFixed(2) + " V";
+    } else if (probe === "batt_term") {
+      valEl.textContent = (E - simState.U_Rs).toFixed(2) + " V";
+    } else {
+      valEl.textContent = simState.U_M.toFixed(2) + " V";
+    }
+  }
+
+  function handleImageFallback() {
+    document.getElementById("circuitImage").style.display = "none";
+    document.getElementById("missingFileName").textContent = currentFile;
+    document.getElementById("fallbackInfo").style.display = "block";
+  }
+
+  function newQuiz() {
+    const options = [0.02, 0.12, 0.18, 0.20, 0.24, 0.30];
+    quizRh = options[Math.floor(Math.random() * options.length)];
+    document.getElementById("quizRhText").textContent = "R_h = " + quizRh.toFixed(2).replace(".", ",") + " Ω";
+    document.getElementById("ansUh").value = "";
+    document.getElementById("ansI").value = "";
+    document.getElementById("ansU").value = "";
+    document.getElementById("ansStart").value = "";
+    document.getElementById("quizFeedback").textContent = "";
+    document.getElementById("diplomaPanel").style.display = "none";
+  }
+
+  function checkQuiz() {
+    const userUh = parseFloat(document.getElementById("ansUh").value);
+    const userI = parseFloat(document.getElementById("ansI").value);
+    const userU = parseFloat(document.getElementById("ansU").value);
+    const userStart = document.getElementById("ansStart").value;
+    const fb = document.getElementById("quizFeedback");
+
+    if (isNaN(userUh) || isNaN(userI) || isNaN(userU) || !userStart) {
+      fb.style.color = "#7d6608";
+      fb.textContent = "Täytä kaikki neljä kohtaa ennen tarkistusta.";
+      return;
+    }
+
+    const rTot = 0.04 + quizRh + R_M;
+    const trueI = E / rTot;
+    const trueUh = trueI * quizRh;
+    const trueU = trueI * R_M;
+    const trueAction = trueU >= 8.0 ? "ok" : "clean";
+
+    const uhOk = Math.abs(userUh - trueUh) <= 0.25;
+    const iOk = Math.abs(userI - trueI) <= 1.2;
+    const uOk = Math.abs(userU - trueU) <= 0.25;
+    const actOk = userStart === trueAction;
+
+    if (uhOk && iOk && uOk && actOk) {
+      fb.style.color = "#145a32";
+      fb.textContent = "✔ Täydellinen suoritus! U_h = " + trueUh.toFixed(2) + " V, I = " + trueI.toFixed(1) + " A, U_M = " + trueU.toFixed(2) + " V.";
+      document.getElementById("diplomaPanel").style.display = "block";
+    } else {
+      fb.style.color = "#78281f";
+      fb.textContent = "✘ Tarkista arvot: R_tot = " + rTot.toFixed(2) + " Ω → I = " + trueI.toFixed(1) + " A, U_h = " + trueUh.toFixed(2) + " V, U_M = " + trueU.toFixed(2) + " V.";
+      document.getElementById("diplomaPanel").style.display = "none";
+    }
+  }
+
+  function downloadDiploma() {
+    const nameInput = document.getElementById("studentName").value.trim();
+    const studentName = nameInput ? nameInput : "Koneenasennuksen opiskelija";
+    const canvas = document.getElementById("diplomaCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Ruutupaperitausta diplomille
+    ctx.fillStyle = "#fbfaf5";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = "rgba(74, 111, 165, 0.22)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 20) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += 20) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+
+    // Kaksoisreunus
+    ctx.strokeStyle = "#14213d";
+    ctx.lineWidth = 6;
+    ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(34, 34, canvas.width - 68, canvas.height - 68);
+
+    // Otsikot
+    ctx.fillStyle = "#14213d";
+    ctx.textAlign = "center";
+    ctx.font = "bold 38px Georgia, serif";
+    ctx.fillText("NOLLAVIRHE-SÄHKÖDIAGNOSTIIKKA", canvas.width / 2, 115);
+
+    ctx.font = "22px Courier New, monospace";
+    ctx.fillStyle = "#33415c";
+    ctx.fillText("KONE- JA TUOTANTOTEKNIIKKA • KONEENASENNUS", canvas.width / 2, 155);
+
+    ctx.font = "24px Georgia, serif";
+    ctx.fillStyle = "#1b263b";
+    ctx.fillText("Tämä todistus myönnetään opiskelijalle", canvas.width / 2, 225);
+
+    ctx.font = "bold 42px Georgia, serif";
+    ctx.fillStyle = "#145a32";
+    ctx.fillText(studentName, canvas.width / 2, 285);
+
+    ctx.beginPath();
+    ctx.moveTo(220, 300);
+    ctx.lineTo(680, 300);
+    ctx.strokeStyle = "#1b263b";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.font = "21px Georgia, serif";
+    ctx.fillStyle = "#1b263b";
+    ctx.fillText("hyväksytystä suorituksesta työkoneen 12 V käynnistyspiirin", canvas.width / 2, 355);
+    ctx.fillText("kuormitetussa jännitehäviömittauksessa (V DC) ja vianmäärityksessä.", canvas.width / 2, 388);
+
+    ctx.font = "bold 19px Courier New, monospace";
+    ctx.fillStyle = "#78281f";
+    ctx.fillText("Todennettu osaaminen: Ohmin ja Tehon lait • Liitoshapettuman diagnoosi", canvas.width / 2, 445);
+
+    const today = new Date().toLocaleDateString("fi-FI");
+    ctx.font = "18px Courier New, monospace";
+    ctx.fillStyle = "#1b263b";
+    ctx.textAlign = "left";
+    ctx.fillText("Päivämäärä: " + today, 80, 540);
+
+    ctx.textAlign = "right";
+    ctx.fillText("Tredu • Koneenasennuksen oppimisympäristö", canvas.width - 80, 540);
+
+    // Lataus PNG-tiedostona
+    const link = document.createElement("a");
+    link.download = "Nollavirhe-sahkodiagnostiikka-diplomi.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }
+
+  document.getElementById("rhSlider").addEventListener("input", updateSimulation);
+  document.getElementById("rsSlider").addEventListener("input", updateSimulation);
+  updateSimulation();
+</script>
+
+</body>
+</html>
